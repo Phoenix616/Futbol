@@ -53,9 +53,14 @@ public class ArenaFutbol extends JavaPlugin {
 	public HashMap<UUID, Vector> vectors = new HashMap<UUID, Vector>();
 	private boolean particles = false;
     public Map<UUID, Long> ballentityClicks = new HashMap<UUID, Long>();
+    
+    public String nmsVersion;
 
     @Override
 	public void onEnable() {
+        String packageName = getServer().getClass().getPackage().getName();
+        nmsVersion = packageName.substring(packageName.lastIndexOf('.') + 1);
+        
 		plugin = this;
 		log = Logger.getLogger("Minecraft");
 		description = getDescription();

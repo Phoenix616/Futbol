@@ -61,10 +61,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.*;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.EntityInteractEvent;
-import org.bukkit.event.entity.FoodLevelChangeEvent;
-import org.bukkit.event.entity.ItemDespawnEvent;
+import org.bukkit.event.entity.*;
 import org.bukkit.event.player.PlayerAnimationEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
@@ -196,17 +193,15 @@ public class FutbolArena extends Arena {
 		ArenaTeam kickersTeam = getTeam(arenaPlayer);
 		List<Entity> ent = player.getNearbyEntities(1, 1, 1);
 		for (Entity entity : ent) {
-			if (!(entity instanceof Player) && (useEntity || entity instanceof Item) && canKick.contains(kickersTeam)) {
+			if (entity instanceof Item && canKick.contains(kickersTeam) && ArenaFutbol.balls.contains(entity)) {
 				List<ArenaTeam> teamsList = match.getArena().getTeams();
 				Location location = player.getLocation();
 				World world = player.getWorld();
 				Vector kickVector = kickVector(player);
 				entity.setVelocity(kickVector);
-				ArenaFutbol.balls.add(entity);
 				world.playEffect(location, Effect.STEP_SOUND, 10);
 				kickedBy.put(entity, player);
 				kickedBalls.put(entity, getMatch());
-				cleanUpList.put(getMatch(), entity);
 				for (ArenaTeam t : teamsList) {
 					if (!canKick.contains(t)) {
 						canKick.add(t);
@@ -239,7 +234,7 @@ public class FutbolArena extends Arena {
 		SObjective objective = getMatch().getScoreboard().getObjective(
 				"futbolObjective");
 		Entity ent = event.getEntity();
-		if (!(ent instanceof Player) && (useEntity || ent instanceof Item) && kickedBalls.containsKey(ent)
+		if (ent instanceof Item && kickedBalls.containsKey(ent)
 				&& kickedBy.get(ent) != null) {
 			World world = ent.getWorld();
 			Location loc = event.getEntity().getLocation();
@@ -273,10 +268,8 @@ public class FutbolArena extends Arena {
 					scoringTeam.getNKills());
 			canKick.remove(scoringTeam);
 			startBallTimer(scoringTeam);
-			kickedBy.put(ent, null);
+            removeBalls(getMatch());
 			// Send ball to center
-			ArenaFutbol.balls.remove(ent);
-			ent.remove();
             spawnBall(center);
 			// Return players to team spawn
 			Set<Player> setOne = teamOne.getBukkitPlayers();
@@ -300,9 +293,25 @@ public class FutbolArena extends Arena {
 
     @ArenaEventHandler
     public void onEntityDamage(EntityDamageEvent event) {
-        if (kickedBalls.containsKey(event.getEntity())) {
+        Entity vehicle = event.getEntity().getVehicle();
+        if (vehicle != null && kickedBalls.containsKey(vehicle)) {
             event.setCancelled(true);
         }
+    }
+    
+    // We only need this because Mojang's NoAI and other tags don't work 
+    // properly on slimes and other mobs so we have to stop the damage here
+    // https://bugs.mojang.com/browse/MC-47091
+    @ArenaEventHandler
+    public void onPlayerDamage(EntityDamageByEntityEvent event) {
+        if(!event.isCancelled() && useEntity
+            && event.getEntity() instanceof Player 
+            && event.getDamager().getType() == ballEntityType 
+            && event.getDamager().getVehicle() != null 
+            && ArenaFutbol.balls.contains(event.getDamager().getVehicle())
+                ) {
+            event.setCancelled(true);
+        }        
     }
 
 	@ArenaEventHandler
@@ -394,14 +403,17 @@ public class FutbolArena extends Arena {
 
     private void spawnBall(Location location) {
         World world = location.getWorld();
+        Entity item = world.dropItem(location, ballItemStack);
+        ArenaFutbol.balls.add(item);
+        cleanUpList.put(getMatch(), item);
         if(useEntity) {
             Entity e = world.spawnEntity(location, ballEntityType);
-            setNoAi(e, true);
+            setTag(e, "NoAI", true);
+            setTag(e, "Invulnerable", true);
             if(e instanceof Slime) {
                 ((Slime) e).setSize(ballEntitySize);
             }
-        } else {
-            world.dropItem(location, ballItemStack);
+            item.setPassenger(e);
         }
     }
 
@@ -411,6 +423,12 @@ public class FutbolArena extends Arena {
 			ArenaFutbol.balls.remove(ball);
 			kickedBalls.remove(ball);
 			kickedBy.remove(ball);
+            if(useEntity) {
+                Entity e = ball.getPassenger();
+                if(e != null) {
+                    e.remove();
+                }
+            }
 			ball.remove();
 		}
 	}
@@ -424,7 +442,7 @@ public class FutbolArena extends Arena {
 		}
 	}
 
-    void setNoAi(Entity bukkitEntity, boolean noAI) {
+    void setTag(Entity bukkitEntity, String tagName, boolean value) {
         if(plugin.nmsVersion.equals("v1_8_R1")) {
             net.minecraft.server.v1_8_R1.Entity nmsEntity = ((org.bukkit.craftbukkit.v1_8_R1.entity.CraftEntity) bukkitEntity).getHandle();
             net.minecraft.server.v1_8_R1.NBTTagCompound tag = nmsEntity.getNBTTag();
@@ -432,7 +450,7 @@ public class FutbolArena extends Arena {
                 tag = new net.minecraft.server.v1_8_R1.NBTTagCompound();
             }
             nmsEntity.c(tag);
-            tag.setInt("NoAI", (noAI) ? 1 : 0);
+            tag.setInt(tagName, (value) ? 1 : 0);
             nmsEntity.f(tag);
         } else if(plugin.nmsVersion.equals("v1_8_R2")) {
             net.minecraft.server.v1_8_R2.Entity nmsEntity = ((org.bukkit.craftbukkit.v1_8_R2.entity.CraftEntity) bukkitEntity).getHandle();
@@ -441,7 +459,7 @@ public class FutbolArena extends Arena {
                 tag = new net.minecraft.server.v1_8_R2.NBTTagCompound();
             }
             nmsEntity.c(tag);
-            tag.setInt("NoAI", (noAI) ? 1 : 0);
+            tag.setInt(tagName, (value) ? 1 : 0);
             nmsEntity.f(tag);
         } else if(plugin.nmsVersion.equals("v1_8_R3")) {
             net.minecraft.server.v1_8_R3.Entity nmsEntity = ((org.bukkit.craftbukkit.v1_8_R3.entity.CraftEntity) bukkitEntity).getHandle();
@@ -450,11 +468,10 @@ public class FutbolArena extends Arena {
                 tag = new net.minecraft.server.v1_8_R3.NBTTagCompound();
             }
             nmsEntity.c(tag);
-            tag.setInt("NoAI", (noAI) ? 1 : 0);
+            tag.setInt(tagName, (value) ? 1 : 0);
             nmsEntity.f(tag);
         } else {
-            plugin.getLogger().warning("NoAI requires NMS code this pcode does not support version " + plugin.nmsVersion + " yet!");
-            plugin.getLogger().warning("Use items as balls for now and not mobs!");
+            plugin.getLogger().warning("The mobs require NMS code and there is no support for NMS version " + plugin.nmsVersion + " in the plugin yet! Use only items as balls for now. (/fb useentity false)");
         }
     }
 
