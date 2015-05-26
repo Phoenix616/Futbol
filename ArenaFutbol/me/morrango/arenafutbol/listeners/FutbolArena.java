@@ -61,6 +61,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.*;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityInteractEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.ItemDespawnEvent;
@@ -291,6 +292,13 @@ public class FutbolArena extends Arena {
 			event.setCancelled(true);
 		}
 	}
+
+    @ArenaEventHandler(needsPlayer = false)
+    public void onEntityDamage(EntityDamageEvent event) {
+        if (kickedBalls.containsKey(event.getEntity())) {
+            event.setCancelled(true);
+        }
+    }
 
 	@ArenaEventHandler
 	public void onFoodLevelChange(FoodLevelChangeEvent event) {
