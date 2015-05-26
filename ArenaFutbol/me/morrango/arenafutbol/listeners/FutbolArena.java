@@ -298,7 +298,7 @@ public class FutbolArena extends Arena {
 		}
 	}
 
-    @ArenaEventHandler(needsPlayer = false)
+    @ArenaEventHandler
     public void onEntityDamage(EntityDamageEvent event) {
         if (kickedBalls.containsKey(event.getEntity())) {
             event.setCancelled(true);
@@ -396,6 +396,7 @@ public class FutbolArena extends Arena {
         World world = location.getWorld();
         if(useEntity) {
             Entity e = world.spawnEntity(location, ballEntityType);
+            setNoAi(e, true);
             if(e instanceof Slime) {
                 ((Slime) e).setSize(ballEntitySize);
             }
@@ -422,5 +423,39 @@ public class FutbolArena extends Arena {
 			}
 		}
 	}
+
+    void setNoAi(Entity bukkitEntity, boolean noAI) {
+        if(plugin.nmsVersion.equals("v1_8_R1")) {
+            net.minecraft.server.v1_8_R1.Entity nmsEntity = ((org.bukkit.craftbukkit.v1_8_R1.entity.CraftEntity) bukkitEntity).getHandle();
+            net.minecraft.server.v1_8_R1.NBTTagCompound tag = nmsEntity.getNBTTag();
+            if (tag == null) {
+                tag = new net.minecraft.server.v1_8_R1.NBTTagCompound();
+            }
+            nmsEntity.c(tag);
+            tag.setInt("NoAI", (noAI) ? 1 : 0);
+            nmsEntity.f(tag);
+        } else if(plugin.nmsVersion.equals("v1_8_R2")) {
+            net.minecraft.server.v1_8_R2.Entity nmsEntity = ((org.bukkit.craftbukkit.v1_8_R2.entity.CraftEntity) bukkitEntity).getHandle();
+            net.minecraft.server.v1_8_R2.NBTTagCompound tag = nmsEntity.getNBTTag();
+            if (tag == null) {
+                tag = new net.minecraft.server.v1_8_R2.NBTTagCompound();
+            }
+            nmsEntity.c(tag);
+            tag.setInt("NoAI", (noAI) ? 1 : 0);
+            nmsEntity.f(tag);
+        } else if(plugin.nmsVersion.equals("v1_8_R3")) {
+            net.minecraft.server.v1_8_R3.Entity nmsEntity = ((org.bukkit.craftbukkit.v1_8_R3.entity.CraftEntity) bukkitEntity).getHandle();
+            net.minecraft.server.v1_8_R3.NBTTagCompound tag = nmsEntity.getNBTTag();
+            if (tag == null) {
+                tag = new net.minecraft.server.v1_8_R3.NBTTagCompound();
+            }
+            nmsEntity.c(tag);
+            tag.setInt("NoAI", (noAI) ? 1 : 0);
+            nmsEntity.f(tag);
+        } else {
+            plugin.getLogger().warning("NoAI requires NMS code this pcode does not support version " + plugin.nmsVersion + " yet!");
+            plugin.getLogger().warning("Use items as balls for now and not mobs!");
+        }
+    }
 
 }
