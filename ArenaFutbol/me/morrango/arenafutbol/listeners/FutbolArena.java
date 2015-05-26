@@ -125,6 +125,11 @@ public class FutbolArena extends Arena {
 
 	@Override
 	public void onOpen() {
+        useEntity = plugin.getConfig().getBoolean("useentity");
+        ballItemStack = plugin.getConfig().getItemStack("ball");
+        ballEntityType = EntityType.valueOf(plugin.getConfig().getString("ballentity.type"));
+        ballEntitySize = plugin.getConfig().getInt("ballentity.size");
+        
 		Set<ArenaPlayer> set = match.getPlayers();
 		List<ArenaTeam> teamsList = match.getArena().getTeams();
 		String teamOne = teamsList.get(0).getDisplayName();
