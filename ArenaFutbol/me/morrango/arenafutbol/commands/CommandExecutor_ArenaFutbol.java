@@ -61,7 +61,7 @@ public class CommandExecutor_ArenaFutbol extends CustomCommandExecutor {
     public boolean useentity(CommandSender sender, boolean use) {
         ArenaFutbol.plugin.getConfig().set("useentity", use);
         ArenaFutbol.plugin.saveConfig();
-        sender.sendMessage(((use) ? (ChatColor.GREEN + "Enabled") : (ChatColor.RED + "Disabled")) + ChatColor.YELLOW + " the usage of an mob instead of an item");
+        sender.sendMessage(((use) ? (ChatColor.GREEN + "Enabled") : (ChatColor.RED + "Disabled")) + ChatColor.YELLOW + " the usage of a mob instead of an item");
         return true;
     }
 
