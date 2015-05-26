@@ -60,11 +60,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Firework;
-import org.bukkit.entity.Item;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.event.entity.EntityInteractEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.ItemDespawnEvent;
@@ -73,22 +69,16 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 public class FutbolArena extends Arena {
-	private ArenaFutbol plugin;
+	private ArenaFutbol plugin = (ArenaFutbol) Bukkit.getPluginManager().getPlugin("ArenaFutbol");
 
-	public FutbolArena(ArenaFutbol plugin) {
-		this.plugin = plugin;
-	}
-
-	public FutbolArena() {
-	}
-
-	public Plugin plugin1 = Bukkit.getPluginManager().getPlugin("ArenaFutbol");
-	public ItemStack is = plugin1.getConfig().getItemStack("ball");
+    public boolean useEntity = plugin.getConfig().getBoolean("useentity");
+	public ItemStack ballItemStack = plugin.getConfig().getItemStack("ball");
+    public EntityType ballEntityType = EntityType.valueOf(plugin.getConfig().getString("ballentity.type"));
+    public int ballEntitySize = plugin.getConfig().getInt("ballentity.size");
 	public HashMap<Entity,Player> kickedBy = new HashMap<Entity, Player>();
 	public HashMap<Entity, Match> kickedBalls = new HashMap<Entity, Match>();
 	public HashMap<Match, Entity> cleanUpList = new HashMap<Match, Entity>();
@@ -167,7 +157,7 @@ public class FutbolArena extends Arena {
 		Location location = loc.getLocation();
 		World world = location.getWorld();
 		Location center = fixCenter(world, location);
-		world.dropItem(center, is);
+        spawnBall(center);
 		for (ArenaTeam t : teamsList) {
 			canKick.add(t);
 		}
@@ -200,7 +190,7 @@ public class FutbolArena extends Arena {
 		ArenaTeam kickersTeam = getTeam(arenaPlayer);
 		List<Entity> ent = player.getNearbyEntities(1, 1, 1);
 		for (Entity entity : ent) {
-			if (entity instanceof Item && canKick.contains(kickersTeam)) {
+			if (!(entity instanceof Player) && (useEntity || entity instanceof Item) && canKick.contains(kickersTeam)) {
 				List<ArenaTeam> teamsList = match.getArena().getTeams();
 				Location location = player.getLocation();
 				World world = player.getWorld();
@@ -243,7 +233,7 @@ public class FutbolArena extends Arena {
 		SObjective objective = getMatch().getScoreboard().getObjective(
 				"futbolObjective");
 		Entity ent = event.getEntity();
-		if (ent instanceof Item && kickedBalls.containsKey(ent)
+		if (!(ent instanceof Player) && (useEntity || ent instanceof Item) && kickedBalls.containsKey(ent)
 				&& kickedBy.get(ent) != null) {
 			World world = ent.getWorld();
 			Location loc = event.getEntity().getLocation();
@@ -281,7 +271,7 @@ public class FutbolArena extends Arena {
 			// Send ball to center
 			ArenaFutbol.balls.remove(ent);
 			ent.remove();
-			world.dropItem(center, is);
+            spawnBall(center);
 			// Return players to team spawn
 			Set<Player> setOne = teamOne.getBukkitPlayers();
 			Set<Player> setTwo = teamTwo.getBukkitPlayers();
@@ -295,7 +285,7 @@ public class FutbolArena extends Arena {
 		}
 	}
 
-	@ArenaEventHandler(needsPlayer = false)
+    @ArenaEventHandler(needsPlayer = false)
 	public void onItemDespawn(ItemDespawnEvent event) {
 		if (kickedBalls.containsKey(event.getEntity())) {
 			event.setCancelled(true);
@@ -309,8 +299,8 @@ public class FutbolArena extends Arena {
 
 	private void startBallTimer(final ArenaTeam team) {
 		cancelBallTimer(team);
-		int ballTimer = plugin1.getConfig().getInt("balltimer");
-		BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin1,
+		int ballTimer = plugin.getConfig().getInt("balltimer");
+		BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin,
 				new Runnable() {
 					@Override
 					public void run() {
@@ -353,9 +343,9 @@ public class FutbolArena extends Arena {
 	}
 
 	public Vector kickVector(Player player) {
-		float configAdjPitch = -(float) plugin1.getConfig().getInt("pitch");
-		float configMaxPitch = -(float) plugin1.getConfig().getInt("maxpitch");
-		double configPower = plugin1.getConfig().getDouble("power");
+		float configAdjPitch = -(float) plugin.getConfig().getInt("pitch");
+		float configMaxPitch = -(float) plugin.getConfig().getInt("maxpitch");
+		double configPower = plugin.getConfig().getDouble("power");
 		Location loc = player.getEyeLocation();
 		if (player.getEquipment().getBoots() != null) {
 			ItemStack boots = player.getEquipment().getBoots();
@@ -388,6 +378,18 @@ public class FutbolArena extends Arena {
 		vector = vector.multiply(configPower);
 		return vector;
 	}
+
+    private void spawnBall(Location location) {
+        World world = location.getWorld();
+        if(useEntity) {
+            Entity e = world.spawnEntity(location, ballEntityType);
+            if(e instanceof Slime) {
+                ((Slime) e).setSize(ballEntitySize);
+            }
+        } else {
+            world.dropItem(location, ballItemStack);
+        }
+    }
 
 	public void removeBalls(Match match) {
 		Entity ball = cleanUpList.get(match);

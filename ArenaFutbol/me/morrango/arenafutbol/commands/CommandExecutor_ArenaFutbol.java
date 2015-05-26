@@ -31,6 +31,7 @@ import me.morrango.arenafutbol.ArenaFutbol;
 
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -42,10 +43,28 @@ public class CommandExecutor_ArenaFutbol extends CustomCommandExecutor {
 		Player player = (Player)sender;
 		ItemStack itemInHand = player.getItemInHand();
 		ArenaFutbol.plugin.getConfig().set("ball", itemInHand);
+        ArenaFutbol.plugin.getConfig().set("useentity", false);
 		ArenaFutbol.plugin.saveConfig();
 		sender.sendMessage(ChatColor.GREEN + "Ball set to " + itemInHand);
 		return true;
 	}
+
+    @MCCommand(cmds = { "ballentity" }, op = true, admin = true)
+    public boolean ballentity(CommandSender sender) {
+        Player player = (Player)sender;
+        ArenaFutbol.plugin.ballentityClicks.put(player.getUniqueId(), System.currentTimeMillis());
+        sender.sendMessage(ChatColor.GREEN + "Rightclick a mob in the next 10 seconds to set it as the ball!");
+        return true;
+    }
+
+    @MCCommand(cmds = { "useentity" }, op = true, admin = true)
+    public boolean useentity(CommandSender sender, String bool) {
+        boolean use = bool.equalsIgnoreCase("true");
+        ArenaFutbol.plugin.getConfig().set("useentity", use);
+        ArenaFutbol.plugin.saveConfig();
+        sender.sendMessage(((use) ? (ChatColor.GREEN + "Enabled") : (ChatColor.RED + "Disabled")) + ChatColor.YELLOW + " the usage of an mob instead of an item");
+        return true;
+    }
 
 	@MCCommand(cmds = { "balltimer" }, op = true, admin = true)
 	public boolean balltimer(CommandSender sender, int timer) {

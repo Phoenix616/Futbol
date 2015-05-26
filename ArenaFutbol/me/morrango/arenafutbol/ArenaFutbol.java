@@ -26,12 +26,14 @@ package me.morrango.arenafutbol;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Logger;
 
 import mc.alk.arena.BattleArena;
 import me.morrango.arenafutbol.commands.CommandExecutor_ArenaFutbol;
 import me.morrango.arenafutbol.listeners.FutbolArena;
+import me.morrango.arenafutbol.listeners.MobClickListener;
 import me.morrango.arenafutbol.tasks.Task_PlayEffect;
 
 import org.bukkit.Effect;
@@ -50,8 +52,9 @@ public class ArenaFutbol extends JavaPlugin {
 	public static HashSet<Entity> balls = new HashSet<Entity>();
 	public HashMap<UUID, Vector> vectors = new HashMap<UUID, Vector>();
 	private boolean particles = false;
+    public Map<UUID, Long> ballentityClicks = new HashMap<UUID, Long>();
 
-	@Override
+    @Override
 	public void onEnable() {
 		plugin = this;
 		log = Logger.getLogger("Minecraft");
@@ -72,6 +75,7 @@ public class ArenaFutbol extends JavaPlugin {
 				FutbolArena.class, new CommandExecutor_ArenaFutbol());
 		getServer().getScheduler().scheduleSyncRepeatingTask(this,
 				new Task_PlayEffect(this), 1L, 1L);
+        getServer().getPluginManager().registerEvents(new MobClickListener(), this);
 
 		// try {
 		// Metrics metrics = new Metrics(this);

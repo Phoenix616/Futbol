@@ -1,6 +1,10 @@
 ball:
   ==: org.bukkit.inventory.ItemStack
   type: MAGMA_CREAM
+ballentity:
+  type: MAGMA_CUBE
+  size: 1
+useentity: false
 balltimer: 5
 pitch: 15
 maxpitch: 90
