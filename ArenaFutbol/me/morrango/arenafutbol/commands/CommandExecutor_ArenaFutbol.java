@@ -25,10 +25,13 @@
 
 package me.morrango.arenafutbol.commands;
 
+import mc.alk.arena.BattleArena;
 import mc.alk.arena.executors.CustomCommandExecutor;
 import mc.alk.arena.executors.MCCommand;
+import mc.alk.arena.objects.arenas.Arena;
 import me.morrango.arenafutbol.ArenaFutbol;
 
+import me.morrango.arenafutbol.listeners.FutbolArena;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
@@ -37,13 +40,66 @@ import org.bukkit.inventory.ItemStack;
 
 public class CommandExecutor_ArenaFutbol extends CustomCommandExecutor {
 
+    @MCCommand(cmds = { "spawnball" }, op = true, admin = true)
+    public boolean spawnball(CommandSender sender) {
+        if(!(sender instanceof Player)) {
+            sender.sendMessage("Only a player can run this command!");
+            return true;
+        }
+        Player player = (Player)sender;
+        ArenaFutbol.plugin.spawnBall(null, player.getLocation());
+        sender.sendMessage(ChatColor.GREEN + "Spawned a ball at your feet!");
+        return true;
+    }
+    
+    @MCCommand(cmds = { "spawnball" }, op = true, admin = true)
+    public boolean spawnball(CommandSender sender, String arenaname) {
+        if(!(sender instanceof Player)) {
+            sender.sendMessage("Only a player can run this command!");
+            return true;
+        }
+        Player player = (Player)sender;
+        Arena arena = BattleArena.getArena(arenaname);
+        if(arena == null) {
+            sender.sendMessage(ChatColor.RED + "No arena with the name " + arenaname + " found!");
+        } else if(arena instanceof FutbolArena) {
+            ArenaFutbol.plugin.spawnBall((FutbolArena) arena, player.getLocation());
+            sender.sendMessage(ChatColor.GREEN + "Spawned a ball in arena " + arena.getName() + " at your feet!");
+        } else {
+            sender.sendMessage(ChatColor.RED + "Arena " + arena.getName() + " is not a FutbolArena!");
+        }
+        return true;
+    }
 
+    @MCCommand(cmds = { "removeballs" }, op = true, admin = true)
+    public boolean removeballs(CommandSender sender, int radius) {
+        if(!(sender instanceof Player)) {
+            sender.sendMessage("Only a player can run this command!");
+            return true;
+        }
+        Player player = (Player)sender;
+        int i = 0;
+        for(Entity e : player.getNearbyEntities(radius, radius, radius)) {
+            if(ArenaFutbol.balls.containsKey(e)) {
+                FutbolArena arena = ArenaFutbol.balls.get(e);
+                ArenaFutbol.plugin.removeBall(arena, e);
+                i++;
+            }
+        }
+        sender.sendMessage(ChatColor.GREEN + "Removed " + ChatColor.YELLOW + i + ChatColor.GREEN + " balls in a " + ChatColor.YELLOW + radius + ChatColor.GREEN + " block radius!");
+        return true;
+    }    
+    
 	@MCCommand(cmds = { "ball" }, op = true, admin = true)
 	public boolean ball(CommandSender sender) {
+        if(!(sender instanceof Player)) {
+            sender.sendMessage("Only a player can run this command!");
+            return true;
+        }
 		Player player = (Player)sender;
 		ItemStack itemInHand = player.getItemInHand();
+        ArenaFutbol.plugin.ballItemStack = itemInHand;
 		ArenaFutbol.plugin.getConfig().set("ball", itemInHand);
-        ArenaFutbol.plugin.getConfig().set("useentity", false);
 		ArenaFutbol.plugin.saveConfig();
 		sender.sendMessage(ChatColor.GREEN + "Ball set to " + itemInHand);
 		return true;
@@ -51,6 +107,10 @@ public class CommandExecutor_ArenaFutbol extends CustomCommandExecutor {
 
     @MCCommand(cmds = { "ballentity" }, op = true, admin = true)
     public boolean ballentity(CommandSender sender) {
+        if(!(sender instanceof Player)) {
+            sender.sendMessage("Only a player can run this command!");
+            return true;
+        }
         Player player = (Player)sender;
         ArenaFutbol.plugin.ballentityClicks.put(player.getUniqueId(), System.currentTimeMillis());
         sender.sendMessage(ChatColor.GREEN + "Rightclick a mob in the next 10 seconds to set it as the ball!");
@@ -59,6 +119,7 @@ public class CommandExecutor_ArenaFutbol extends CustomCommandExecutor {
 
     @MCCommand(cmds = { "useentity" }, op = true, admin = true)
     public boolean useentity(CommandSender sender, boolean use) {
+        ArenaFutbol.plugin.useEntity = use;
         ArenaFutbol.plugin.getConfig().set("useentity", use);
         ArenaFutbol.plugin.saveConfig();
         sender.sendMessage(((use) ? (ChatColor.GREEN + "Enabled") : (ChatColor.RED + "Disabled")) + ChatColor.YELLOW + " the usage of a mob as ball");
@@ -80,6 +141,8 @@ public class CommandExecutor_ArenaFutbol extends CustomCommandExecutor {
 		if (pitch > 90 || pitch < 0) {
 			return false;
 		}
+
+        ArenaFutbol.plugin.configAdjPitch = -(float) pitch;
 		ArenaFutbol.plugin.getConfig().set("pitch", pitch);
 		ArenaFutbol.plugin.saveConfig();
 		sender.sendMessage(ChatColor.GREEN + "Pitch adjustment set to " + pitch
@@ -92,6 +155,7 @@ public class CommandExecutor_ArenaFutbol extends CustomCommandExecutor {
 		if (pitch > 90 || pitch < 0) {
 			return false;
 		}
+        ArenaFutbol.plugin.configMaxPitch = -(float) pitch;
 		ArenaFutbol.plugin.getConfig().set("maxpitch", pitch);
 		ArenaFutbol.plugin.saveConfig();
 		sender.sendMessage(ChatColor.GREEN + "Maximum Pitch set to " + pitch
@@ -100,14 +164,15 @@ public class CommandExecutor_ArenaFutbol extends CustomCommandExecutor {
 	}
 
 	@MCCommand(cmds = { "power" }, op = true, admin = true)
-	public boolean power(CommandSender sender, double newDouble) {
-		if (newDouble > 2.0) {
+	public boolean power(CommandSender sender, double power) {
+		if (power > 2.0) {
 			return false;
 		}
-		ArenaFutbol.plugin.getConfig().set("power", newDouble);
+        ArenaFutbol.plugin.configPower = power;
+		ArenaFutbol.plugin.getConfig().set("power", power);
 		ArenaFutbol.plugin.saveConfig();
 		sender.sendMessage(ChatColor.GREEN + "Power adjustment set to "
-				+ (int) (newDouble * 100) + "%");
+				+ (int) (power * 100) + "%");
 		return true;
 
 	}

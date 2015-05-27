@@ -73,16 +73,18 @@ import org.bukkit.util.Vector;
 public class FutbolArena extends Arena {
 	private ArenaFutbol plugin = (ArenaFutbol) Bukkit.getPluginManager().getPlugin("ArenaFutbol");
 
-    public boolean useEntity = plugin.getConfig().getBoolean("useentity");
-	public ItemStack ballItemStack = plugin.getConfig().getItemStack("ball");
-    public EntityType ballEntityType = EntityType.valueOf(plugin.getConfig().getString("ballentity.type"));
-    public int ballEntitySize = plugin.getConfig().getInt("ballentity.size");
 	public HashMap<Entity,Player> kickedBy = new HashMap<Entity, Player>();
 	public HashMap<Entity, Match> kickedBalls = new HashMap<Entity, Match>();
 	public HashMap<Match, Entity> cleanUpList = new HashMap<Match, Entity>();
 	private HashMap<ArenaTeam, Integer> ballTimers = new HashMap<ArenaTeam, Integer>();
 	public Set<ArenaTeam> canKick = new HashSet<ArenaTeam>();
 	private Random random = new Random();
+
+
+    public boolean useEntity;
+    public ItemStack ballItemStack;
+    public EntityType ballEntityType;
+    public int ballEntitySize;
 
 	public void createFireWork(Location loc, Color teamColor, int i) {
 		if (loc != null && teamColor != null) {
@@ -122,10 +124,10 @@ public class FutbolArena extends Arena {
 
 	@Override
 	public void onOpen() {
-        useEntity = plugin.getConfig().getBoolean("useentity");
-        ballItemStack = plugin.getConfig().getItemStack("ball");
-        ballEntityType = EntityType.valueOf(plugin.getConfig().getString("ballentity.type"));
-        ballEntitySize = plugin.getConfig().getInt("ballentity.size");
+        useEntity = plugin.useEntity;
+        ballItemStack = plugin.ballItemStack;
+        ballEntityType = plugin.ballEntityType;
+        ballEntitySize = plugin.ballEntitySize;
         
 		Set<ArenaPlayer> set = match.getPlayers();
 		List<ArenaTeam> teamsList = match.getArena().getTeams();
@@ -160,7 +162,7 @@ public class FutbolArena extends Arena {
 		Location location = loc.getLocation();
 		World world = location.getWorld();
 		Location center = fixCenter(world, location);
-        spawnBall(center);
+        plugin.spawnBall(this, center);
 		for (ArenaTeam t : teamsList) {
 			canKick.add(t);
 		}
@@ -193,11 +195,11 @@ public class FutbolArena extends Arena {
 		ArenaTeam kickersTeam = getTeam(arenaPlayer);
 		List<Entity> ent = player.getNearbyEntities(1, 1, 1);
 		for (Entity entity : ent) {
-			if (entity instanceof Item && canKick.contains(kickersTeam) && ArenaFutbol.balls.contains(entity)) {
+			if (entity instanceof Item && canKick.contains(kickersTeam) && ArenaFutbol.balls.containsKey(entity)) {
 				List<ArenaTeam> teamsList = match.getArena().getTeams();
 				Location location = player.getLocation();
 				World world = player.getWorld();
-				Vector kickVector = kickVector(player);
+				Vector kickVector = plugin.kickVector(player);
 				entity.setVelocity(kickVector);
 				world.playEffect(location, Effect.STEP_SOUND, 10);
 				kickedBy.put(entity, player);
@@ -270,7 +272,7 @@ public class FutbolArena extends Arena {
 			startBallTimer(scoringTeam);
             removeBalls(getMatch());
 			// Send ball to center
-            spawnBall(center);
+            plugin.spawnBall(this, center);
 			// Return players to team spawn
 			Set<Player> setOne = teamOne.getBukkitPlayers();
 			Set<Player> setTwo = teamTwo.getBukkitPlayers();
@@ -308,7 +310,7 @@ public class FutbolArena extends Arena {
             && event.getEntity() instanceof Player 
             && event.getDamager().getType() == ballEntityType 
             && event.getDamager().getVehicle() != null 
-            && ArenaFutbol.balls.contains(event.getDamager().getVehicle())
+            && ArenaFutbol.balls.containsKey(event.getDamager().getVehicle())
                 ) {
             event.setCancelled(true);
         }        
@@ -355,82 +357,16 @@ public class FutbolArena extends Arena {
 	}
 
 	public Location fixCenter(World world, Location origin) {
-		Location center = new Location(world, origin.getX(),
-			origin.getY() + 1.0, origin.getZ());
-			Chunk chunk = center.getChunk();
+		Location center = new Location(world, origin.getX(), origin.getY() + 1.0, origin.getZ());
+		Chunk chunk = center.getChunk();
 		if (!chunk.isLoaded()) {
 			world.loadChunk(chunk);
 		}
 		return center;
 	}
 
-	public Vector kickVector(Player player) {
-		float configAdjPitch = -(float) plugin.getConfig().getInt("pitch");
-		float configMaxPitch = -(float) plugin.getConfig().getInt("maxpitch");
-		double configPower = plugin.getConfig().getDouble("power");
-		Location loc = player.getEyeLocation();
-		if (player.getEquipment().getBoots() != null) {
-			ItemStack boots = player.getEquipment().getBoots();
-			if (boots.isSimilar(new ItemStack(Material.DIAMOND_BOOTS))) {
-				configPower = configPower + 0.5;
-			}
-			if (boots.isSimilar(new ItemStack(Material.IRON_BOOTS))) {
-				configPower = configPower + 0.4;
-			}
-			if (boots.isSimilar(new ItemStack(Material.GOLD_BOOTS))) {
-				configPower = configPower + 0.3;
-			}
-			if (boots.isSimilar(new ItemStack(Material.CHAINMAIL_BOOTS))) {
-				configPower = configPower + 0.2;
-			}
-			if (boots.isSimilar(new ItemStack(Material.LEATHER_BOOTS))) {
-				configPower = configPower + 0.1;
-			}
-		}
-		float pitch = loc.getPitch();
-		pitch = pitch + configAdjPitch;
-		if (pitch > 0) {
-			pitch = 0.0f;
-		}
-		if (pitch < configMaxPitch) {
-			pitch = 0.0f + configMaxPitch;
-		}
-		loc.setPitch(pitch);
-		Vector vector = loc.getDirection();
-		vector = vector.multiply(configPower);
-		return vector;
-	}
-
-    private void spawnBall(Location location) {
-        World world = location.getWorld();
-        Entity item = world.dropItem(location, ballItemStack);
-        ArenaFutbol.balls.add(item);
-        cleanUpList.put(getMatch(), item);
-        if(useEntity) {
-            Entity e = world.spawnEntity(location, ballEntityType);
-            setTag(e, "NoAI", true);
-            setTag(e, "Invulnerable", true);
-            if(e instanceof Slime) {
-                ((Slime) e).setSize(ballEntitySize);
-            }
-            item.setPassenger(e);
-        }
-    }
-
 	public void removeBalls(Match match) {
-		Entity ball = cleanUpList.get(match);
-		if (ball != null) {
-			ArenaFutbol.balls.remove(ball);
-			kickedBalls.remove(ball);
-			kickedBy.remove(ball);
-            if(useEntity) {
-                Entity e = ball.getPassenger();
-                if(e != null) {
-                    e.remove();
-                }
-            }
-			ball.remove();
-		}
+        plugin.removeBall(this, cleanUpList.get(match));
 	}
 
 	public void removeArenaTeams(Match match) {
@@ -441,38 +377,5 @@ public class FutbolArena extends Arena {
 			}
 		}
 	}
-
-    void setTag(Entity bukkitEntity, String tagName, boolean value) {
-        if(plugin.nmsVersion.equals("v1_8_R1")) {
-            net.minecraft.server.v1_8_R1.Entity nmsEntity = ((org.bukkit.craftbukkit.v1_8_R1.entity.CraftEntity) bukkitEntity).getHandle();
-            net.minecraft.server.v1_8_R1.NBTTagCompound tag = nmsEntity.getNBTTag();
-            if (tag == null) {
-                tag = new net.minecraft.server.v1_8_R1.NBTTagCompound();
-            }
-            nmsEntity.c(tag);
-            tag.setInt(tagName, (value) ? 1 : 0);
-            nmsEntity.f(tag);
-        } else if(plugin.nmsVersion.equals("v1_8_R2")) {
-            net.minecraft.server.v1_8_R2.Entity nmsEntity = ((org.bukkit.craftbukkit.v1_8_R2.entity.CraftEntity) bukkitEntity).getHandle();
-            net.minecraft.server.v1_8_R2.NBTTagCompound tag = nmsEntity.getNBTTag();
-            if (tag == null) {
-                tag = new net.minecraft.server.v1_8_R2.NBTTagCompound();
-            }
-            nmsEntity.c(tag);
-            tag.setInt(tagName, (value) ? 1 : 0);
-            nmsEntity.f(tag);
-        } else if(plugin.nmsVersion.equals("v1_8_R3")) {
-            net.minecraft.server.v1_8_R3.Entity nmsEntity = ((org.bukkit.craftbukkit.v1_8_R3.entity.CraftEntity) bukkitEntity).getHandle();
-            net.minecraft.server.v1_8_R3.NBTTagCompound tag = nmsEntity.getNBTTag();
-            if (tag == null) {
-                tag = new net.minecraft.server.v1_8_R3.NBTTagCompound();
-            }
-            nmsEntity.c(tag);
-            tag.setInt(tagName, (value) ? 1 : 0);
-            nmsEntity.f(tag);
-        } else {
-            plugin.getLogger().warning("The mobs require NMS code and there is no support for NMS version " + plugin.nmsVersion + " in the plugin yet! Use only items as balls for now. (/fb useentity false)");
-        }
-    }
 
 }

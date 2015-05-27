@@ -42,12 +42,15 @@ public class MobClickListener implements Listener {
         Map<UUID, Long> bc = ArenaFutbol.plugin.ballentityClicks;
         UUID id = event.getPlayer().getUniqueId();
         if(bc.containsKey(id) && bc.get(id) + 11000 > System.currentTimeMillis()) {
+            ArenaFutbol.plugin.ballEntityType = event.getRightClicked().getType();
             ArenaFutbol.plugin.getConfig().set("ballentity.type", event.getRightClicked().getType().toString());
             int size = 0;
             if(event.getRightClicked() instanceof Slime) {
                 size = ((Slime) event.getRightClicked()).getSize();
             }
+            ArenaFutbol.plugin.ballEntitySize = size;
             ArenaFutbol.plugin.getConfig().set("ballentity.size", size);
+            ArenaFutbol.plugin.useEntity = true;
             ArenaFutbol.plugin.getConfig().set("useentity", true);
             ArenaFutbol.plugin.saveConfig();
             event.getPlayer().sendMessage(ChatColor.GREEN + "Ball set to " + event.getRightClicked().getType() + " (size: " + size + ")");

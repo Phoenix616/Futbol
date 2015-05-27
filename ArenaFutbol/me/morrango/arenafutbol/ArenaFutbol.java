@@ -31,15 +31,22 @@ import java.util.UUID;
 import java.util.logging.Logger;
 
 import mc.alk.arena.BattleArena;
+import mc.alk.arena.competition.match.Match;
 import me.morrango.arenafutbol.commands.CommandExecutor_ArenaFutbol;
 import me.morrango.arenafutbol.listeners.FutbolArena;
 import me.morrango.arenafutbol.listeners.MobClickListener;
+import me.morrango.arenafutbol.listeners.PlayerAnimationListener;
 import me.morrango.arenafutbol.tasks.Task_PlayEffect;
 
 import org.bukkit.Effect;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Slime;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
@@ -49,10 +56,19 @@ public class ArenaFutbol extends JavaPlugin {
 	private PluginDescriptionFile description;
 	private String prefix;
 	public static ArenaFutbol plugin;
-	public static HashSet<Entity> balls = new HashSet<Entity>();
-	public HashMap<UUID, Vector> vectors = new HashMap<UUID, Vector>();
+	public static Map<Entity, FutbolArena> balls = new HashMap<Entity, FutbolArena>();
+	public Map<UUID, Vector> vectors = new HashMap<UUID, Vector>();
 	private boolean particles = false;
     public Map<UUID, Long> ballentityClicks = new HashMap<UUID, Long>();
+
+    public float configAdjPitch;
+    public float configMaxPitch;
+    public double configPower;
+    
+    public boolean useEntity;
+    public ItemStack ballItemStack;
+    public EntityType ballEntityType;
+    public int ballEntitySize;
     
     public String nmsVersion;
 
@@ -81,6 +97,7 @@ public class ArenaFutbol extends JavaPlugin {
 		getServer().getScheduler().scheduleSyncRepeatingTask(this,
 				new Task_PlayEffect(this), 1L, 1L);
         getServer().getPluginManager().registerEvents(new MobClickListener(), this);
+        getServer().getPluginManager().registerEvents(new PlayerAnimationListener(), this);
 
 		// try {
 		// Metrics metrics = new Metrics(this);
@@ -106,10 +123,19 @@ public class ArenaFutbol extends JavaPlugin {
 		this.getConfig().options().copyDefaults(true);
 		saveDefaultConfig();
 		saveConfig();
+
+        configAdjPitch = -(float) getConfig().getInt("pitch");
+        configMaxPitch = -(float) getConfig().getInt("maxpitch");
+        configPower = getConfig().getDouble("power");
+
+        useEntity = plugin.getConfig().getBoolean("useentity", true);
+        ballItemStack = plugin.getConfig().getItemStack("ball");
+        ballEntityType = EntityType.valueOf(plugin.getConfig().getString("ballentity.type", "MAGMA_CUBE"));
+        ballEntitySize = plugin.getConfig().getInt("ballentity.size", 1);
 	}
 
 	public void doBallPhysics() {
-		for (Entity ball : ArenaFutbol.balls) {
+		for (Entity ball : ArenaFutbol.balls.keySet()) {
 			UUID uuid = ball.getUniqueId();
 			Vector velocity = ball.getVelocity();
 			if (this.vectors.containsKey(uuid)) {
@@ -143,4 +169,113 @@ public class ArenaFutbol extends JavaPlugin {
 		world.playEffect(location, Effect.INSTANT_SPELL, 0, 128);
 	}
 
+
+    public void removeBall(FutbolArena arena, Entity ball) {
+        if (ball != null) {
+            ArenaFutbol.balls.remove(ball);
+            if(arena != null) {
+                arena.kickedBalls.remove(ball);
+                arena.kickedBy.remove(ball);
+            }
+            Entity e = ball.getPassenger();
+            if(e != null) {
+                e.remove();
+            }
+            ball.remove();
+        }
+    }
+
+    public void spawnBall(FutbolArena arena, Location location) {
+        ItemStack ballIS = ballItemStack;
+        boolean useE = useEntity;
+        EntityType ballET = ballEntityType;
+        int ballSz = ballEntitySize;
+        if(arena != null) {
+            ballIS = arena.ballItemStack;
+            useE = arena.useEntity;
+            ballET = arena.ballEntityType;
+            ballSz = arena.ballEntitySize;
+        }
+        Entity item = location.getWorld().dropItem(location, ballIS);
+        if(arena != null) {
+            arena.cleanUpList.put(arena.getMatch(), item);
+        }
+        balls.put(item, arena);
+        if(useE) {
+            Entity e = location.getWorld().spawnEntity(location, ballET);
+            setTag(e, "NoAI", true);
+            setTag(e, "Invulnerable", true);
+            if(e instanceof Slime) {
+                ((Slime) e).setSize(ballSz);
+            }
+            item.setPassenger(e);
+        }
+    }
+
+    void setTag(Entity bukkitEntity, String tagName, boolean value) {
+        if(plugin.nmsVersion.equals("v1_8_R1")) {
+            net.minecraft.server.v1_8_R1.Entity nmsEntity = ((org.bukkit.craftbukkit.v1_8_R1.entity.CraftEntity) bukkitEntity).getHandle();
+            net.minecraft.server.v1_8_R1.NBTTagCompound tag = nmsEntity.getNBTTag();
+            if (tag == null) {
+                tag = new net.minecraft.server.v1_8_R1.NBTTagCompound();
+            }
+            nmsEntity.c(tag);
+            tag.setInt(tagName, (value) ? 1 : 0);
+            nmsEntity.f(tag);
+        } else if(plugin.nmsVersion.equals("v1_8_R2")) {
+            net.minecraft.server.v1_8_R2.Entity nmsEntity = ((org.bukkit.craftbukkit.v1_8_R2.entity.CraftEntity) bukkitEntity).getHandle();
+            net.minecraft.server.v1_8_R2.NBTTagCompound tag = nmsEntity.getNBTTag();
+            if (tag == null) {
+                tag = new net.minecraft.server.v1_8_R2.NBTTagCompound();
+            }
+            nmsEntity.c(tag);
+            tag.setInt(tagName, (value) ? 1 : 0);
+            nmsEntity.f(tag);
+        } else if(plugin.nmsVersion.equals("v1_8_R3")) {
+            net.minecraft.server.v1_8_R3.Entity nmsEntity = ((org.bukkit.craftbukkit.v1_8_R3.entity.CraftEntity) bukkitEntity).getHandle();
+            net.minecraft.server.v1_8_R3.NBTTagCompound tag = nmsEntity.getNBTTag();
+            if (tag == null) {
+                tag = new net.minecraft.server.v1_8_R3.NBTTagCompound();
+            }
+            nmsEntity.c(tag);
+            tag.setInt(tagName, (value) ? 1 : 0);
+            nmsEntity.f(tag);
+        } else {
+            plugin.getLogger().warning("The mobs require NMS code and there is no support for NMS version " + plugin.nmsVersion + " in the plugin yet! Use only items as balls for now. (/fb useentity false)");
+        }
+    }
+    
+    public Vector kickVector(Player player) {
+        Location loc = player.getEyeLocation();
+        if (player.getEquipment().getBoots() != null) {
+            ItemStack boots = player.getEquipment().getBoots();
+            if (boots.isSimilar(new ItemStack(Material.DIAMOND_BOOTS))) {
+                configPower = configPower + 0.5;
+            }
+            if (boots.isSimilar(new ItemStack(Material.IRON_BOOTS))) {
+                configPower = configPower + 0.4;
+            }
+            if (boots.isSimilar(new ItemStack(Material.GOLD_BOOTS))) {
+                configPower = configPower + 0.3;
+            }
+            if (boots.isSimilar(new ItemStack(Material.CHAINMAIL_BOOTS))) {
+                configPower = configPower + 0.2;
+            }
+            if (boots.isSimilar(new ItemStack(Material.LEATHER_BOOTS))) {
+                configPower = configPower + 0.1;
+            }
+        }
+        float pitch = loc.getPitch();
+        pitch = pitch + configAdjPitch;
+        if (pitch > 0) {
+            pitch = 0.0f;
+        }
+        if (pitch < configMaxPitch) {
+            pitch = 0.0f + configMaxPitch;
+        }
+        loc.setPitch(pitch);
+        Vector vector = loc.getDirection();
+        vector = vector.multiply(configPower);
+        return vector;
+    }
 }
