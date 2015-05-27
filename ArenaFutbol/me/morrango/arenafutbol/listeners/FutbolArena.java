@@ -300,20 +300,20 @@ public class FutbolArena extends Arena {
             event.setCancelled(true);
         }
     }
-    
-    // We only need this because Mojang's NoAI and other tags don't work 
+
+    // We only need this because Mojang's NoAI and other tags don't work
     // properly on slimes and other mobs so we have to stop the damage here
     // https://bugs.mojang.com/browse/MC-47091
     @ArenaEventHandler
     public void onPlayerDamage(EntityDamageByEntityEvent event) {
         if(!event.isCancelled() && useEntity
-            && event.getEntity() instanceof Player 
-            && event.getDamager().getType() == ballEntityType 
-            && event.getDamager().getVehicle() != null 
+            && event.getEntity() instanceof Player
+            && event.getDamager().getType() == ballEntityType
+            && event.getDamager().getVehicle() != null
             && ArenaFutbol.balls.containsKey(event.getDamager().getVehicle())
                 ) {
             event.setCancelled(true);
-        }        
+        }
     }
 
 	@ArenaEventHandler

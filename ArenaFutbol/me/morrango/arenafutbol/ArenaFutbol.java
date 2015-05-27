@@ -25,17 +25,17 @@
 package me.morrango.arenafutbol;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Logger;
 
 import mc.alk.arena.BattleArena;
-import mc.alk.arena.competition.match.Match;
+import mc.alk.arena.objects.LocationType;
+import mc.alk.arena.objects.arenas.Arena;
 import me.morrango.arenafutbol.commands.CommandExecutor_ArenaFutbol;
 import me.morrango.arenafutbol.listeners.FutbolArena;
 import me.morrango.arenafutbol.listeners.MobClickListener;
-import me.morrango.arenafutbol.listeners.PlayerAnimationListener;
+import me.morrango.arenafutbol.listeners.TestBallListeners;
 import me.morrango.arenafutbol.tasks.Task_PlayEffect;
 
 import org.bukkit.Effect;
@@ -64,6 +64,7 @@ public class ArenaFutbol extends JavaPlugin {
     public float configAdjPitch;
     public float configMaxPitch;
     public double configPower;
+    public FutbolArena testBallArena;
     
     public boolean useEntity;
     public ItemStack ballItemStack;
@@ -97,7 +98,7 @@ public class ArenaFutbol extends JavaPlugin {
 		getServer().getScheduler().scheduleSyncRepeatingTask(this,
 				new Task_PlayEffect(this), 1L, 1L);
         getServer().getPluginManager().registerEvents(new MobClickListener(), this);
-        getServer().getPluginManager().registerEvents(new PlayerAnimationListener(), this);
+        getServer().getPluginManager().registerEvents(new TestBallListeners(), this);
 
 		// try {
 		// Metrics metrics = new Metrics(this);
@@ -199,8 +200,14 @@ public class ArenaFutbol extends JavaPlugin {
         Entity item = location.getWorld().dropItem(location, ballIS);
         if(arena != null) {
             arena.cleanUpList.put(arena.getMatch(), item);
+            balls.put(item, arena);
+        } else {
+            if(testBallArena == null) {
+                testBallArena = new FutbolArena();
+                testBallArena.setName("TestBallArena");
+            }
+            balls.put(item, testBallArena);
         }
-        balls.put(item, arena);
         if(useE) {
             Entity e = location.getWorld().spawnEntity(location, ballET);
             setTag(e, "NoAI", true);
