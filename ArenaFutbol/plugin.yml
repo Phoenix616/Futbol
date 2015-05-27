@@ -12,4 +12,4 @@ commands:
     description: arena futbol
     aliases: [fb]
     usage: |
-           /fb <ball|ballentity|useentity|balltimer|pitch|maxpitch|power>
+           /fb <spawnball|removeballs|ball|ballentity|useentity|balltimer|pitch|maxpitch|power>
