@@ -112,6 +112,9 @@ public class ArenaFutbol extends JavaPlugin {
 	@Override
 	public void onDisable() {
 		getServer().getScheduler().cancelAllTasks();
+        for(Entity e : balls.keySet()) {
+            removeBall(balls.get(e), e);
+        }
 		log("disabled " + description.getFullName());
 	}
 
